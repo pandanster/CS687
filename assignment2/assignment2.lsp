@@ -113,6 +113,48 @@ prints that fitness and individual in a pleasing manner."
 	        best-fit best-ind)
     fitnesses))
 
+(defparameter *boolean-vector-length* 100) 
+(defparameter *boolean-problem* :max-ones) 
+;; perhaps other problems might include...  
+ 
+(defun boolean-vector-creator () 
+  "Creates a boolean-vector *boolean-vector-length* in size, filled with 
+random Ts and NILs, or with random 1s and 0s, your option." 
+    ;;; IMPLEMENT ME 
+  (let((boolean-vector (make-array *boolean-vector-length*))) 
+    (dotimes (i *boolean-vector-length*) 
+      (setf (aref boolean-vector i) (random 2))) 
+    boolean-vector)) 
+ 
+ 
+(defparameter *boolean-crossover-probability* 0.2) 
+(defparameter *boolean-mutation-probability* 0.01) 
+(defun boolean-vector-modifier (ind1 ind2) 
+  "Copies and modifies ind1 and ind2 by crossing them over with a uniform crossover, 
+then mutates the children.  *crossover-probability* is the probability that any 
+given allele will crossover.  *mutation-probability* is the probability that any 
+given allele in a child will mutate.  Mutation simply flips the bit of the allele." 
+ 
+    ;;; IMPLEMENT ME 
+  (let ((child1 (make-array (length ind1))) (child2 (make-array (length ind2)))) 
+    (dotimes (i (length ind1)) 
+      (if (< (random 1.0) *boolean-crossover-probability*) 
+      (progn 
+        (setf (aref child1 i) (aref ind2 i)) 
+        (setf (aref child2 i) (aref ind1 i)))) 
+      (if (< (random 1.0) *boolean-mutation-probability*) 
+        (setf (aref child1 i) (if(= (aref child1 i) 0) 1 0));;flip bit for child 2 
+        (setf (aref child2 i) (if(= (aref child2 i) 0) 1 0)))) 
+    (list child1 child2)));;flip bit for child 2 
+ 
+(defun boolean-vector-evaluator (ind1) 
+  "Evaluates an individual, which must be a boolean-vector, and returns 
+its fitness." 
+(let ((sum 0))    ;;implementation for max ones 
+    ;;; IMPLEMENT ME 
+    (dotimes (i (length ind1)) 
+    (setf sum (+ sum (aref ind1 i)))) 
+    sum)) 
 
 ;;;Working on the floating point vector problem
 (defun get1or-1 ()
