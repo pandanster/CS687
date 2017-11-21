@@ -87,17 +87,18 @@ POP-SIZE, using various functions"
   ;; best individual discovered over the whole run at the end, plus its fitness
   ;; and any other statistics you think might be nifty.
 
-    ;;; IMPLEMENT ME
-(let ((pop '()) (fitnesses '()) (next-gen '()) (parent1 '()) (parent2 '()))
-  (dotimes (i pop-size)
-    (setf pop (append pop (cons (funcall creator) nil))))
-  (dotimes (i generations)
-    (setf fitnesses (mapcar evaluator pop))
-    (setf parent1 (funcall  selector (/ pop-size 2) pop fitnesses))
-    (setf parent2 (funcall selector (/ pop-size 2) pop fitnesses))
-    (setf pop (mapcar modifier parent1 parent2))
-    (setf pop (append (mapcar #'first pop) (mapcar #'second pop)))
-    (funcall printer pop fitnesses))))
+    ;;; IMPLEMENT M
+  (funcall setup)
+  (let ((pop '()) (fitnesses '()) (next-gen '()) (parent1 '()) (parent2 '()))
+    (dotimes (i pop-size)
+      (setf pop (append pop (cons (funcall creator) nil))))
+    (dotimes (i generations)
+      (setf fitnesses (mapcar evaluator pop))
+      (setf parent1 (funcall  selector (/ pop-size 2) pop fitnesses))
+      (setf parent2 (funcall selector (/ pop-size 2) pop fitnesses))
+      (setf pop (mapcar modifier parent1 parent2))
+      (setf pop (append (mapcar #'first pop) (mapcar #'second pop)))
+      (funcall printer pop fitnesses))))
 
 
 (defun simple-printer (pop fitnesses)  ;; I'm nice and am providing this for you.  :-)
@@ -248,8 +249,8 @@ Error generated if the queue is empty."
   (let ((index (random (length queue))))
     (swap (elt queue index) (elt queue (1- (length queue))))
     (vector-pop queue)))
-(defparameter *nonterminal-set* '((+ 2) (- 2) (* 2) (% 2) (sin 1) (cos 1) (exp 1)))
-(defparameter *terminal-set* '(x))
+(defparameter *nonterminal-set* '())
+(defparameter *terminal-set* '())
 
 (defun ptc2(size)
   "If size=1, just returns a random terminal.  Else builds and
