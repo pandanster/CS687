@@ -47,7 +47,7 @@ new slot is created).  EQUALP is the test used for duplicates."
   (let ((fittest (random (length population))))
     (dotimes (i *tournament-size*)
       (let ((candidate (random (length population))))
-	(if (> (* 1 (elt fitnesses candidate)) (* 1 (elt fitnesses fittest)))
+	(if (> (* -1 (elt fitnesses candidate)) (* -1 (elt fitnesses fittest)))
 	    (setf fittest candidate))))
     (elt population fittest)))
 
@@ -129,7 +129,9 @@ random Ts and NILs, or with random 1s and 0s, your option."
  
  
 (defparameter *boolean-crossover-probability* 0.2) 
+
 (defparameter *boolean-mutation-probability* 0.01) 
+
 (defun boolean-vector-modifier (ind1 ind2) 
   "Copies and modifies ind1 and ind2 by crossing them over with a uniform crossover, 
 then mutates the children.  *crossover-probability* is the probability that any 
@@ -137,12 +139,15 @@ given allele will crossover.  *mutation-probability* is the probability that any
 given allele in a child will mutate.  Mutation simply flips the bit of the allele." 
  
     ;;; IMPLEMENT ME 
-  (let ((child1 (make-array (length ind1))) (child2 (make-array (length ind2)))) 
+  (let ((child1 (make-array (length ind1))) (child2 (make-array (length ind2) ))) 
     (dotimes (i (length ind1)) 
       (if (< (random 1.0) *boolean-crossover-probability*) 
       (progn 
         (setf (aref child1 i) (aref ind2 i)) 
-        (setf (aref child2 i) (aref ind1 i)))) 
+        (setf (aref child2 i) (aref ind1 i)))
+      (progn 
+        (setf (aref child1 i) (aref ind1 i)) 
+        (setf (aref child2 i) (aref ind2 i)))) 
       (if (< (random 1.0) *boolean-mutation-probability*) 
         (setf (aref child1 i) (if(= (aref child1 i) 0) 1 0));;flip bit for child 2 
         (setf (aref child2 i) (if(= (aref child2 i) 0) 1 0)))) 
@@ -190,8 +195,8 @@ random numbers in the range appropriate to the given problem"
     (dotimes (i (length vector))
       (if (> p (random 1.0))
 	  (let ((noise (random variance)))
-	    (while (or (> (+ (aref vector i) noise) max) (< (+ (aref vector i) noise) min))
-	      (setf noise (random variance)))
+	    (loop while (or (> (+ (aref vector i) noise) max) (< (+ (aref vector i) noise) min))
+	      do (setf noise (random variance)))
 	    (setf (aref tweaked i) (+ (aref vector i) noise)))))
     tweaked))
    
@@ -224,15 +229,15 @@ given allele in a child will mutate.  Mutation does gaussian convolution on the 
 (defun float-vector-sum-evaluator(ind)
   (rastrigin-evaluator ind))
 
-(defun float-vector-sum-setup(length min max problem cross-over-probability mutation-probability mutation-variance)
+(defun float-vector-sum-setup()
 
-  (setf *float-vector-length* length)
-  (setf *float-problem* problem)
-  (setf *float-min* min)
-  (setf *float-max* max)
-  (setf *float-crossover-probability* cross-over-probability)
-  (setf *float-mutation-probability* mutation-probability)
-  (setf *float-mutation-variance* mutation-variance))
+  (setf *float-vector-length* 100)
+  (setf *float-problem* :rastrigin)
+  (setf *float-min* -5.12)
+  (setf *float-max* 5.12)
+  (setf *float-crossover-probability* 0.2)
+  (setf *float-mutation-probability* 0.1)
+  (setf *float-mutation-variance* 0.01))
   
 (defun make-queue ()
   "Makes a random-queue"
