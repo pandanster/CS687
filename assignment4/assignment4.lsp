@@ -61,7 +61,6 @@ it unique as far as EQUALP is concerned.  Returns the copy."
 ;;;;;;; the OPERATOR structure).  The ordering specifies
 ;;;;;;; that before-op must come before after-op.
 
-
 (defun print-ordering (p stream depth)
   "Helper function to print link in a pretty way"
   (declare (ignorable depth))
@@ -97,6 +96,17 @@ plus a pointer to the start operator and to the goal operator."
     (setf (plan-links p) (copy-tree (plan-links p)))
     p))
 
+(defun print-hash-entry (key value)
+  (format t "The value associated with the key ~S is ~S~%" key value))
+
+(defun build-graph (assoc-list)
+  (let ((graph (make-hash-table :test 'equalp)))
+    (dolist (x assoc-list)
+      (if (gethash (car x) graph)
+	  (setf (gethash (car x) graph) (append (gethash (car x) graph) (list (cdr x))))
+	  (setf (gethash (car x) graph) (list (cdr x)))))
+    graph))
+
 ;;;;;;;;; UTILITY FUNCTIONS
 ;;;;;;;;; I predict you will find these functions useful.
 
@@ -105,6 +115,14 @@ plus a pointer to the start operator and to the goal operator."
 ;;;;
 ;;;; (reachable '((a . b) (c . d) (b . c) (b . e) (e . a)) 'e 'd)
 ;;;; --> T   ;; e->a, a->b, b->c, c->d
+(defun reachable-2(assoc-list from to)
+  (dolist (x assoc-list nil)
+  ;;  (format t "current assoc ~A~%" assoc-list)
+    (when (and (equalp (car x) from)
+	              (or (equalp (cdr x) to)
+			     (reachable-2 (remove x assoc-list) (cdr x) to)))
+      (return t))))
+
 
 (defun reachable (assoc-list from to)
   "Returns t if to is reachable from from in the association list."
@@ -115,14 +133,21 @@ plus a pointer to the start operator and to the goal operator."
 ;;; known to be reachable from FROM and ones not know to be reachable, then
 ;;; using the property of transitivity, move pairs from the second list to the first
 ;;; list, until either you discover it's reachable, or nothing else is moving.
-
-  (dolist (x assoc-list nil)
-    (when (and (equalp (car x) from)
-	              (or (equalp (cdr x) to)
-			     (reachable (remove x assoc-list) (cdr x) to)))
-      (return t))))
-
-
+  (if (< (length assoc-list) 20)
+     (return-from reachable (reachable-2 assoc-list from to)))
+  (let* ((nodes-from (list from)))
+    (loop while nodes-from
+       do(let ((x (pop nodes-from)))
+	   (dolist (y assoc-list)
+;;	     (format t "current assoc ~A x: ~A ~A ~%" assoc-list x (cdr y))
+	     (if (and (equalp (car y) x) (equalp (cdr y) to))
+		 (return-from reachable t))
+	     (if (equalp (car y) x)
+		 (progn
+		   (push (cdr y) nodes-from)
+		   (setf assoc-list (remove y assoc-list))))))))
+  nil)
+	     	 
 ;;;; Cyclic-assoc-list takes an association list and determines if it
 ;;;; contains a cycle (two objects can reach each other)
 ;;;;
@@ -133,8 +158,10 @@ plus a pointer to the start operator and to the goal operator."
 ;;;; --> T   ;; a->a
 
 (defun cyclic-assoc-list (assoc-list)
+  " Set up with the provided version of reachable
+our implementaion is available as reachable"
   (dolist (x assoc-list nil)
-    (when (reachable assoc-list (cdr x) (car x))
+    (when (reachable-2 assoc-list (cdr x) (car x))
       (return t))))
 
 ;;;; Binary-combinations returns all N^2 combinations of T and NIL.
@@ -189,12 +216,6 @@ or before the link, and it's got an effect which counters the link's effect."
     (if (equal (negate effect) (link-precond link))
 	(return-from operator-threatens-link-p t)))
   '())
-#|
-	(progn
-	  (dolist (ordering (plan-orderings plan))
-	    (if (and (equal operator (car ordering)) (equal (link-to link) (cdr ordering)))
-		(return-from operator-threatens-link-p t))))))
-  '()) |#
 
 (defun inconsistent-p (plan)
   "Plan orderings are inconsistent"
@@ -256,10 +277,8 @@ that is we have figured a way to solve all the subgoals"
 on those subgoals.  Returns a solved plan, else nil if not solved."
   (loop while( < current-depth max-depth)
      do(progn
-	; (format t "Current Depth: ~A MaxDepth: ~A  plan::~A ~%" current-depth max-depth plan)
 	 (if (if-solved-p plan)
 	     (progn
-	       ;(format t "plan solved 1::~A ~%" plan)
 	       (return-from select-subgoal plan)))
 	 (let ((sub-goal (pick-operand plan)))
 	   (setf current-depth(1+ current-depth))
@@ -268,7 +287,6 @@ on those subgoals.  Returns a solved plan, else nil if not solved."
 	       (return-from select-subgoal sol))))))
   (if (if-solved-p plan)
       (progn
-	;(format t "plan solved 2: ~A ~%" plan)
 	plan) nil))
 
 (defun operator-not-added(plan operator)
@@ -282,7 +300,6 @@ on those subgoals.  Returns a solved plan, else nil if not solved."
 hook-up-operator for all possible operators in the plan.  If that
 doesn't work, recursively call add operators and call hook-up-operators
 on them.  Returns a solved plan, else nil if not solved."
-  ;(format t "received op-precond: ~A ~%" op-precond-pair)
   (let* ((operator (first op-precond-pair)) (precond (second op-precond-pair))
 	 (new-op-added nil) (plan-ops (all-effects precond plan)) (all-ops (all-operators precond)) (chosen-one nil) (sol nil))
     (dolist (current-op plan-ops)
@@ -306,7 +323,6 @@ operator should have already been copied out of its template at this point].
 Then adds that copied operator
 the copied plan, and hooks up the orderings so that the new operator is
 after start and before goal.  Returns the modified copy of the plan."
- ;; (format t "Adding operator ~A ~%" operator)
   (let ((plan-copy (copy-plan-2 plan)))
     (push operator (plan-operators plan-copy))
     (push (cons (plan-start plan) operator) (plan-orderings plan-copy))
@@ -344,17 +360,7 @@ plan, else nil if not solved."
    "Returns plans for each combination of promotions and demotions
 of the given threats, except  for the inconsistent plans.  These plans
 are copies of the original plan."
-   ;;Let me write it down on what has to be done
-   ;;I will get a list of operators and links that they threaten
-   ;;the only way they can threaten a link is by negating an effect produced by from operator
-   ;;We are making an assumption that the threats won't involve inconsistencies?
-   ;;So inorder to resolve a threat I need to either promote or demote the operator
-   ;;So for each of the threat I can either promote or demote, so if have a n threats
-   ;;all I need to do come up with all the combinations of promotions and demotions
-   ;;each combination will be a plan by itself. If a any plan turns out to be inconsistent
-   ;;I will throw it away and return only the consistent plans
    (let* ((total-threats (length threats)) (resolved-plans '()) (possible-combos (binary-combinations total-threats)))
-;;     (format t "Possible combos are ~A Threats:: ~A ~%" possible-combos threats)
      (dolist (current-combo possible-combos)
        (let ((resolved-plan (copy-plan-2 plan)))
 	 (mapc #'(lambda (x y) (if x (promote (car y) (cdr y) resolved-plan) (demote (car y) (cdr y) resolved-plan))) current-combo threats)
@@ -391,6 +397,7 @@ with respect to the link given"
 (defparameter *operators-for-precond* nil
   "Hash table.  Will yield a list of operators which can achieve a given precondition")
 
+
 (defun build-operators-for-precond ()
   "Buils the hash table"
   (setf *operators-for-precond* (make-hash-table :test #'equalp))
@@ -415,8 +422,8 @@ with respect to the link given"
 		  :links nil
 		  :start start
 		  :goal goal))
-	    (depth *depth-increment*)
-	     solution)
+	 (depth *depth-increment*)
+	 solution)
     (build-operators-for-precond)
     ;; Do iterative deepening search on this sucker
     (loop
@@ -428,8 +435,8 @@ with respect to the link given"
     (format t "~%Solution Discovered:~%~%")
     solution))
 
-
 #|
+
 (defparameter *operators*
   (list
    ;; move from table operators
@@ -459,19 +466,7 @@ doesn't matter really -- but NOT including a goal or start operator")
   ;; somewhat redundant, is doable with just ((t a-on-b))
   '((t a-on-b) (t b-on-table) (t a-clear)))
 
-(defparameter  *start*
-       ;;;initial start
-  (make-operator :name 'start :uniq (gensym) :effects *start-effects*))
-
-(defparameter *goal*
-      ;;;Initial goal
-  (make-operator :name 'goal :uniq (gensym) :preconditions *goal-preconditions*))
-
-(defparameter *plan*
-  ;;;Initial plan that we start with
-  (make-plan :operators (list *start* *goal*) :orderings (list (cons *start* *goal*)) :start *start* :goal *goal*))
 |#
-
 
 ;;;;;; THREE-BLOCK-WORLD
 ;;;;;; you have three blocks on the table, A, B, and C.
@@ -548,6 +543,7 @@ doesn't matter really -- but NOT including a goal or start operator")
     (make-operator :name 'c-b-to-a
    :preconditions '((t c-on-b) (t c-clear) (t a-clear))
    :effects '((nil c-on-b) (t c-on-a) (nil a-clear) (t b-clear))))
+
    "A list of strips operators without their uniq gensyms set yet -- 
  doesn't matter really -- but NOT including a goal or start operator")
 
@@ -555,12 +551,22 @@ doesn't matter really -- but NOT including a goal or start operator")
 ;;   ;; Sussman Anomaly
    '((t a-on-table) (t b-on-table) (t c-on-a) (t b-clear) (t c-clear))
    "A list of predicates which specify the initial state")
+
+
 #|
  (defparameter *start-effects*
    ;; another simple situation: all on table
    '((t a-on-table) (t a-clear)
     (t b-on-table) (t b-clear)
      (t c-on-table) (t c-clear))) 
+
+
+(defparameter *start-effects*
+  ;;For the difficult problem we tried which is not so difficult
+  '((t c-on-b) (t b-on-a) (t a-on-table) (t c-clear)))
+
 |#
+
  (defparameter *goal-preconditions*
   '((t a-on-b) (t b-on-c) (t c-on-table) (t a-clear)))
+
